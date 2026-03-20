@@ -735,15 +735,7 @@ document.addEventListener('click', (e) => {
     if (dd) dd.className = 'mat-dropdown';
   }
 });
-const sel = document.getElementById('sel-unidade');
-if (sel) {
-  UNITS.forEach(u => {
-    const o = document.createElement('option');
-    o.value = u;
-    o.textContent = u;
-    sel.appendChild(o);
-  });
-}
+UNITS.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); });
 
 function pad(n,w){ return String(n).padStart(w,'0'); }
 function formatDate(ts){ const d=new Date(ts); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
@@ -995,11 +987,11 @@ window.openMateriais = (firebaseId) => {
   matTemp = t.materiais ? [...t.materiais] : [];
   document.getElementById('mat-ticket-info').innerHTML = `<b>${t.num||''}</b> — ${t.unidade}<br><span style="color:var(--text2)">${t.descricao}</span>`;
   document.getElementById('inp-mat-obs').value = t.obsMateria||'';
-  document.getElementById('inp-mat-nome').value = '';
+  document.getElementById('inp-mat-busca').value = '';
   document.getElementById('inp-mat-qtd').value = '';
   renderMatList();
   document.getElementById('modal-materiais').classList.remove('hidden');
-  setTimeout(()=>document.getElementById('inp-mat-nome').focus(),100);
+  setTimeout(()=>document.getElementById('inp-mat-busca').focus(),100);
 };
 window.closeMateriais = () => { document.getElementById('modal-materiais').classList.add('hidden'); matTicketId=null; matTemp=[]; };
 function renderMatList() {
