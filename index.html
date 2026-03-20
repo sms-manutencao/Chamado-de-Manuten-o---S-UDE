@@ -735,7 +735,15 @@ document.addEventListener('click', (e) => {
     if (dd) dd.className = 'mat-dropdown';
   }
 });
-UNITS.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); });
+const sel = document.getElementById('sel-unidade');
+if (sel) {
+  UNITS.forEach(u => {
+    const o = document.createElement('option');
+    o.value = u;
+    o.textContent = u;
+    sel.appendChild(o);
+  });
+}
 
 function pad(n,w){ return String(n).padStart(w,'0'); }
 function formatDate(ts){ const d=new Date(ts); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
