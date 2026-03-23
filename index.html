@@ -575,6 +575,12 @@ let matTicketId = null;
 let matTemp = [];
 let lastProtocolo = '';
 
+window.showScreen = (name) => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  window.scrollTo(0,0);
+};
+
 window.verificarSenha = () => {
   const senha = document.getElementById('inp-senha').value;
   const inp = document.getElementById('inp-senha');
@@ -740,12 +746,6 @@ UNITS.forEach(u => { const o = document.createElement('option'); o.value = u; o.
 function pad(n,w){ return String(n).padStart(w,'0'); }
 function formatDate(ts){ const d=new Date(ts); return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
 function formatDateShort(ts){ return new Date(ts).toLocaleDateString('pt-BR'); }
-
-window.showScreen = (name) => {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-'+name).classList.add('active');
-  window.scrollTo(0,0);
-};
 
 window.selectUrgency = (v) => {
   currentUrgency = v;
