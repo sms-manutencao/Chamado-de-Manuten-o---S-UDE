@@ -741,6 +741,8 @@ document.addEventListener('click', (e) => {
     if (dd) dd.className = 'mat-dropdown';
   }
 });
+
+const sel = document.getElementById('sel-unidade');
 UNITS.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; sel.appendChild(o); });
 
 function pad(n,w){ return String(n).padStart(w,'0'); }
