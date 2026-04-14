@@ -1186,7 +1186,7 @@ window.filtrarMateriais = (q) => {
   if (!q || q.length < 2) { dd.className='mat-dropdown'; return; }
   const res = LISTA_MATERIAIS.filter(m => m.toLowerCase().includes(q.toLowerCase())).slice(0,10);
   if (!res.length) { dd.className='mat-dropdown'; return; }
-  dd.innerHTML = res.map(m=>`<div class="mat-dropdown-item" onclick="selecionarMaterial('${m.replace(/'/g,"&#39;")}')">${m}</div>`).join('');
+  dd.innerHTML = res.map(m=>`<div class="mat-dropdown-item" onmousedown="event.preventDefault();selecionarMaterial('${m.replace(/'/g,"&#39;")}')">${m}</div>`).join('');
   dd.className = 'mat-dropdown visible';
 };
 
