@@ -1200,7 +1200,17 @@ window.selecionarMaterial = (nome) => {
 };
 
 window.handleMatKey = (e) => {
-  if (e.key === 'Escape') document.getElementById('mat-dropdown').className = 'mat-dropdown';
+  const dropdown = document.getElementById('mat-dropdown');
+  if (e.key === 'Escape' && dropdown) {
+    dropdown.className = 'mat-dropdown';
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const first = dropdown ? dropdown.querySelector('.mat-dropdown-item') : null;
+    if (first) first.click();
+    else addMaterial();
+  }
 };
 
 document.addEventListener('click', (e) => {
@@ -1404,14 +1414,13 @@ function renderList() {
     const btnIniciar = t.status==='aberto' ? `<button class="tc-btn tc-btn-progress" onclick="updateStatus('${t.firebaseId}','em_andamento')">▶ Iniciar</button>` : '';
     const btnConcluir = t.status!=='concluido' ? `<button class="tc-btn tc-btn-done" onclick="updateStatus('${t.firebaseId}','concluido')">✓ Concluir</button>` : '';
     const btnMat = `<button class="tc-btn tc-btn-material" onclick="openMateriais('${t.firebaseId}')">🔧 ${t.materiais&&t.materiais.length?'Ver/Editar Materiais':'Registrar Materiais'}</button>`;
-    const btnDelete = (gestorAutenticado && t.status==='aberto')
-      ? `<button class="tc-btn tc-btn-delete" onclick="excluirChamado('${t.firebaseId}','${t.num||''}')">🗑 Excluir</button>`
-      : '';
+    const btnDelete = `<button class="tc-btn tc-btn-delete" onclick="excluirChamado('${t.firebaseId}','${t.num||''}')">🗑 Excluir</button>`;
     const matBlock = (t.materiais&&t.materiais.length) ? `
       <div class="tc-materiais"><strong>🔧 Materiais utilizados</strong>
       ${t.materiais.map(m=>`${m.qtd?'<b>'+m.qtd+'x</b> ':''}${m.nome}`).join(' · ')}
       ${t.obsMateria?`<div style="margin-top:4px;opacity:.8">${t.obsMateria}</div>`:''}</div>` : '';
 
+    // Datas e duração
     const duracaoTotal = t.concluidoEm ? calcDuracao(t.criado, t.concluidoEm) : (t.iniciadoEm ? calcDuracao(t.criado) : null);
     const datasBlock = `
       <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--text2)">
@@ -1442,27 +1451,12 @@ function renderList() {
 }
 
 window.excluirChamado = async (firebaseId, num) => {
-  if (!gestorAutenticado) {
-    alert('Apenas o gestor pode excluir chamados.');
-    return;
-  }
-  const chamado = allTickets.find(t => t.firebaseId === firebaseId);
-  if (!chamado) {
-    alert('Chamado não encontrado.');
-    return;
-  }
-  if (chamado.status !== 'aberto') {
-    alert('Só é possível excluir chamados em aberto.');
-    return;
-  }
-  if (!confirm(`Tem certeza que deseja excluir o chamado ${num || ''}?
+  if (!confirm(`Tem certeza que deseja excluir o chamado ${num}?
 
 Esta ação não pode ser desfeita.`)) return;
   try {
     await deleteDoc(doc(db, 'chamados', firebaseId));
-  } catch(e) {
-    alert('Erro ao excluir: ' + e.message);
-  }
+  } catch(e) { alert('Erro ao excluir: ' + e.message); }
 };
 
 window.updateStatus = async (firebaseId, status) => {
@@ -1475,6 +1469,7 @@ window.updateStatus = async (firebaseId, status) => {
     alert('Erro: '+e.message);
   }
 };
+
 // =====================
 // MATERIAIS
 // =====================
@@ -1486,6 +1481,7 @@ window.openMateriais = (firebaseId) => {
   document.getElementById('mat-ticket-info').innerHTML = `<b>${t.num||''}</b> — ${t.unidade}<br><span style="color:var(--text2)">${t.descricao}</span>`;
   document.getElementById('inp-mat-obs').value = t.obsMateria||'';
   document.getElementById('inp-mat-busca').value = '';
+  document.getElementById('inp-mat-selecionado').value = '';
   document.getElementById('inp-mat-qtd').value = '';
   renderMatList();
   document.getElementById('modal-materiais').classList.remove('hidden');
@@ -1498,14 +1494,40 @@ function renderMatList() {
   el.innerHTML = matTemp.map((m,i)=>`<div class="mat-item"><span class="mat-nome">${m.nome}</span><span class="mat-qtd">${m.qtd||'—'}</span><button class="mat-del" onclick="removeMaterial(${i})">✕</button></div>`).join('');
 }
 window.addMaterial = () => {
-  const nome = document.getElementById('inp-mat-selecionado').value.trim();
-  const qtd = document.getElementById('inp-mat-qtd').value.trim();
-  if (!nome) { document.getElementById('inp-mat-busca').focus(); return; }
-  matTemp.push({nome,qtd});
-  document.getElementById('inp-mat-selecionado').value = '';
-  document.getElementById('inp-mat-busca').value = '';
-  document.getElementById('inp-mat-qtd').value = '';
-  document.getElementById('inp-mat-busca').focus();
+  const campoSelecionado = document.getElementById('inp-mat-selecionado');
+  const campoBusca = document.getElementById('inp-mat-busca');
+  const campoQtd = document.getElementById('inp-mat-qtd');
+
+  const selecionado = campoSelecionado.value.trim();
+  const busca = campoBusca.value.trim();
+  const qtd = campoQtd.value.trim();
+
+  let nome = selecionado;
+
+  if (!nome && busca) {
+    const buscaNorm = busca.toLowerCase();
+    const matchExato = LISTA_MATERIAIS.find(m => m.toLowerCase() === buscaNorm);
+    const matchPrefixo = LISTA_MATERIAIS.filter(m => m.toLowerCase().startsWith(buscaNorm));
+    const matchContem = LISTA_MATERIAIS.filter(m => m.toLowerCase().includes(buscaNorm));
+
+    if (matchExato) nome = matchExato;
+    else if (matchPrefixo.length === 1) nome = matchPrefixo[0];
+    else if (matchContem.length === 1) nome = matchContem[0];
+  }
+
+  if (!nome) {
+    alert('Selecione um material da lista antes de adicionar.');
+    campoBusca.focus();
+    return;
+  }
+
+  matTemp.push({nome, qtd});
+  campoSelecionado.value = '';
+  campoBusca.value = '';
+  campoQtd.value = '';
+  const dropdown = document.getElementById('mat-dropdown');
+  if (dropdown) dropdown.className = 'mat-dropdown';
+  campoBusca.focus();
   renderMatList();
 };
 window.removeMaterial = (i) => { matTemp.splice(i,1); renderMatList(); };
