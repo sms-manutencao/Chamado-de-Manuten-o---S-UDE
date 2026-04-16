@@ -1404,13 +1404,14 @@ function renderList() {
     const btnIniciar = t.status==='aberto' ? `<button class="tc-btn tc-btn-progress" onclick="updateStatus('${t.firebaseId}','em_andamento')">▶ Iniciar</button>` : '';
     const btnConcluir = t.status!=='concluido' ? `<button class="tc-btn tc-btn-done" onclick="updateStatus('${t.firebaseId}','concluido')">✓ Concluir</button>` : '';
     const btnMat = `<button class="tc-btn tc-btn-material" onclick="openMateriais('${t.firebaseId}')">🔧 ${t.materiais&&t.materiais.length?'Ver/Editar Materiais':'Registrar Materiais'}</button>`;
-    const btnDelete = `<button class="tc-btn tc-btn-delete" onclick="excluirChamado('${t.firebaseId}','${t.num||''}')">🗑 Excluir</button>`;
+    const btnDelete = (gestorAutenticado && t.status==='aberto')
+      ? `<button class="tc-btn tc-btn-delete" onclick="excluirChamado('${t.firebaseId}','${t.num||''}')">🗑 Excluir</button>`
+      : '';
     const matBlock = (t.materiais&&t.materiais.length) ? `
       <div class="tc-materiais"><strong>🔧 Materiais utilizados</strong>
       ${t.materiais.map(m=>`${m.qtd?'<b>'+m.qtd+'x</b> ':''}${m.nome}`).join(' · ')}
       ${t.obsMateria?`<div style="margin-top:4px;opacity:.8">${t.obsMateria}</div>`:''}</div>` : '';
 
-    // Datas e duração
     const duracaoTotal = t.concluidoEm ? calcDuracao(t.criado, t.concluidoEm) : (t.iniciadoEm ? calcDuracao(t.criado) : null);
     const datasBlock = `
       <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--text2)">
@@ -1441,18 +1442,39 @@ function renderList() {
 }
 
 window.excluirChamado = async (firebaseId, num) => {
-  if (!confirm(`Tem certeza que deseja excluir o chamado ${num}?\n\nEsta ação não pode ser desfeita.`)) return;
+  if (!gestorAutenticado) {
+    alert('Apenas o gestor pode excluir chamados.');
+    return;
+  }
+  const chamado = allTickets.find(t => t.firebaseId === firebaseId);
+  if (!chamado) {
+    alert('Chamado não encontrado.');
+    return;
+  }
+  if (chamado.status !== 'aberto') {
+    alert('Só é possível excluir chamados em aberto.');
+    return;
+  }
+  if (!confirm(`Tem certeza que deseja excluir o chamado ${num || ''}?
+
+Esta ação não pode ser desfeita.`)) return;
   try {
     await deleteDoc(doc(db, 'chamados', firebaseId));
-  } catch(e) { alert('Erro ao excluir: ' + e.message); }
+  } catch(e) {
+    alert('Erro ao excluir: ' + e.message);
+  }
 };
+
+window.updateStatus = async (firebaseId, status) => {
   const extra = {};
   if (status === 'em_andamento') extra.iniciadoEm = Date.now();
   if (status === 'concluido') extra.concluidoEm = Date.now();
-  try { await updateDoc(doc(db,'chamados',firebaseId), { status, ...extra }); }
-  catch(e) { alert('Erro: '+e.message); }
+  try {
+    await updateDoc(doc(db,'chamados',firebaseId), { status, ...extra });
+  } catch(e) {
+    alert('Erro: '+e.message);
+  }
 };
-
 // =====================
 // MATERIAIS
 // =====================
