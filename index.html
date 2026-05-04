@@ -321,11 +321,7 @@
           <div class="radio-group">
             <div class="radio-opt selected-normal" id="opt-normal" onclick="selectUrgency('normal')">
               <div class="dot dot-normal"></div>
-              <div><div style="font-size:14px;font-weight:600">Normal</div><div style="font-size:12px;color:var(--text2)">Pode aguardar agenda</div></div>
-            </div>
-            <div class="radio-opt" id="opt-urgente" onclick="selectUrgency('urgente')">
-              <div class="dot dot-urgent"></div>
-              <div><div style="font-size:14px;font-weight:600">Urgente</div><div style="font-size:12px;color:var(--text2)">Requer atenção imediata</div></div>
+              <div><div style="font-size:14px;font-weight:600">Normal</div><div style="font-size:12px;color:var(--text2)">Todos os chamados serão registrados como Normal</div></div>
             </div>
           </div>
         </div>
@@ -1228,9 +1224,9 @@ function formatDate(ts){ const d=new Date(ts); return d.toLocaleDateString('pt-B
 function formatDateShort(ts){ return new Date(ts).toLocaleDateString('pt-BR'); }
 
 window.selectUrgency = (v) => {
-  currentUrgency = v;
-  document.getElementById('opt-normal').className = 'radio-opt'+(v==='normal'?' selected-normal':'');
-  document.getElementById('opt-urgente').className = 'radio-opt'+(v==='urgente'?' selected-urgent':'');
+  currentUrgency = 'normal';
+  const normal = document.getElementById('opt-normal');
+  if (normal) normal.className = 'radio-opt selected-normal';
 };
 
 window.submitTicket = async () => {
@@ -1247,7 +1243,7 @@ window.submitTicket = async () => {
     lastProtocolo = num;
     await addDoc(collection(db,'chamados'), {
       num, unidade, solicitante, descricao,
-      urgencia: currentUrgency, status: 'aberto',
+      urgencia: 'normal', status: 'aberto',
       materiais: [], obsMateria: '',
       criado: Date.now(), iniciadoEm: null, concluidoEm: null
     });
