@@ -1172,12 +1172,52 @@ const LISTA_MATERIAIS = [
   "VÁLVULA DESCARGA HYDRA MAXX - KIT REPARO COMPLETO"
 ];
 
+function normTexto(v) {
+  return String(v || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function escapeHtml(v) {
+  return String(v || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buscarMateriais(q, limite = 10) {
+  const qNorm = normTexto(q);
+  if (!qNorm || qNorm.length < 2) return [];
+  return LISTA_MATERIAIS
+    .filter(m => normTexto(m).includes(qNorm))
+    .slice(0, limite);
+}
+
 window.filtrarMateriais = (q) => {
   const dd = document.getElementById('mat-dropdown');
-  if (!q || q.length < 2) { dd.className='mat-dropdown'; return; }
-  const res = LISTA_MATERIAIS.filter(m => m.toLowerCase().includes(q.toLowerCase())).slice(0,10);
-  if (!res.length) { dd.className='mat-dropdown'; return; }
-  dd.innerHTML = res.map(m=>`<div class="mat-dropdown-item" onmousedown="event.preventDefault();selecionarMaterial('${m.replace(/'/g,"&#39;")}')">${m}</div>`).join('');
+  if (!dd) return;
+  const res = buscarMateriais(q, 10);
+  dd.innerHTML = '';
+  if (!res.length) {
+    dd.className = 'mat-dropdown';
+    return;
+  }
+
+  res.forEach(nome => {
+    const item = document.createElement('div');
+    item.className = 'mat-dropdown-item';
+    item.textContent = nome;
+    item.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      window.selecionarMaterial(nome);
+    });
+    dd.appendChild(item);
+  });
+
   dd.className = 'mat-dropdown visible';
 };
 
@@ -1197,8 +1237,11 @@ window.handleMatKey = (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
     const first = dropdown ? dropdown.querySelector('.mat-dropdown-item') : null;
-    if (first) first.click();
-    else addMaterial();
+    if (first) {
+      window.selecionarMaterial(first.textContent);
+    } else {
+      addMaterial();
+    }
   }
 };
 
@@ -1465,7 +1508,7 @@ window.openMateriais = (firebaseId) => {
   matTicketId = firebaseId;
   const t = allTickets.find(x => x.firebaseId===firebaseId);
   if (!t) return;
-  matTemp = t.materiais ? [...t.materiais] : [];
+  matTemp = Array.isArray(t.materiais) ? [...t.materiais] : [];
   document.getElementById('mat-ticket-info').innerHTML = `<b>${t.num||''}</b> — ${t.unidade}<br><span style="color:var(--text2)">${t.descricao}</span>`;
   document.getElementById('inp-mat-obs').value = t.obsMateria||'';
   document.getElementById('inp-mat-busca').value = '';
@@ -1478,9 +1521,34 @@ window.openMateriais = (firebaseId) => {
 window.closeMateriais = () => { document.getElementById('modal-materiais').classList.add('hidden'); matTicketId=null; matTemp=[]; };
 function renderMatList() {
   const el = document.getElementById('mat-list');
-  if (!matTemp.length) { el.innerHTML = '<div class="mat-empty">Nenhum material adicionado ainda.</div>'; return; }
-  el.innerHTML = matTemp.map((m,i)=>`<div class="mat-item"><span class="mat-nome">${m.nome}</span><span class="mat-qtd">${m.qtd||'—'}</span><button class="mat-del" onclick="removeMaterial(${i})">✕</button></div>`).join('');
+  if (!matTemp.length) {
+    el.innerHTML = '<div class="mat-empty">Nenhum material adicionado ainda.</div>';
+    return;
+  }
+  el.innerHTML = matTemp.map((m,i)=>`
+    <div class="mat-item">
+      <span class="mat-nome">${escapeHtml(m.nome)}</span>
+      <span class="mat-qtd">${escapeHtml(m.qtd || '—')}</span>
+      <button class="mat-del" onclick="removeMaterial(${i})">✕</button>
+    </div>`).join('');
 }
+
+function resolverMaterialDigitado(busca) {
+  const buscaNorm = normTexto(busca);
+  if (!buscaNorm) return '';
+
+  const matchExato = LISTA_MATERIAIS.find(m => normTexto(m) === buscaNorm);
+  if (matchExato) return matchExato;
+
+  const matchPrefixo = LISTA_MATERIAIS.filter(m => normTexto(m).startsWith(buscaNorm));
+  if (matchPrefixo.length === 1) return matchPrefixo[0];
+
+  const matchContem = LISTA_MATERIAIS.filter(m => normTexto(m).includes(buscaNorm));
+  if (matchContem.length === 1) return matchContem[0];
+
+  return '';
+}
+
 window.addMaterial = () => {
   const campoSelecionado = document.getElementById('inp-mat-selecionado');
   const campoBusca = document.getElementById('inp-mat-busca');
@@ -1490,21 +1558,15 @@ window.addMaterial = () => {
   const busca = campoBusca.value.trim();
   const qtd = campoQtd.value.trim();
 
-  let nome = selecionado;
-
-  if (!nome && busca) {
-    const buscaNorm = busca.toLowerCase();
-    const matchExato = LISTA_MATERIAIS.find(m => m.toLowerCase() === buscaNorm);
-    const matchPrefixo = LISTA_MATERIAIS.filter(m => m.toLowerCase().startsWith(buscaNorm));
-    const matchContem = LISTA_MATERIAIS.filter(m => m.toLowerCase().includes(buscaNorm));
-
-    if (matchExato) nome = matchExato;
-    else if (matchPrefixo.length === 1) nome = matchPrefixo[0];
-    else if (matchContem.length === 1) nome = matchContem[0];
-  }
+  let nome = selecionado || resolverMaterialDigitado(busca);
 
   if (!nome) {
-    alert('Selecione um material da lista antes de adicionar.');
+    const sugestoes = buscarMateriais(busca, 10);
+    if (sugestoes.length > 1) {
+      alert('Há mais de um material correspondente. Clique na opção correta da lista antes de adicionar.');
+    } else {
+      alert('Selecione um material da lista antes de adicionar.');
+    }
     campoBusca.focus();
     return;
   }
