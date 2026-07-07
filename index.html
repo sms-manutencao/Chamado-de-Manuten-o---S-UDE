@@ -503,6 +503,7 @@
   </div>
 </div>
 
+
 <!-- MODAL RANKING DE UNIDADES -->
 <div class="modal-overlay hidden" id="modal-ranking-unidades">
   <div class="modal-box">
@@ -511,6 +512,28 @@
       <button class="modal-close" onclick="closeRankingUnidades()">✕</button>
     </div>
     <div class="modal-body">
+      <div class="report-filters" style="grid-template-columns:1fr 1fr">
+        <div><label>Mês</label>
+          <select id="rank-mes" onchange="renderRankingUnidades()">
+            <option value="todos">Todos os meses</option>
+            <option value="1">Janeiro</option>
+            <option value="2">Fevereiro</option>
+            <option value="3">Março</option>
+            <option value="4">Abril</option>
+            <option value="5">Maio</option>
+            <option value="6">Junho</option>
+            <option value="7">Julho</option>
+            <option value="8">Agosto</option>
+            <option value="9">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div><label>Ano</label>
+          <select id="rank-ano" onchange="renderRankingUnidades()"></select>
+        </div>
+      </div>
       <div class="report-preview" id="ranking-preview"></div>
     </div>
     <div class="modal-footer">
@@ -1853,32 +1876,162 @@ window.imprimirConsumo = () => {
   if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),500);}
   else{alert('Permita popups no navegador para abrir o relatório.');}
 };
+
+
 window.openRankingUnidades = () => {
-  document.getElementById('modal-ranking-unidades').classList.remove('hidden');
+  const modal = document.getElementById('modal-ranking-unidades');
+  if (modal) modal.classList.remove('hidden');
+  popularAnosRanking();
   renderRankingUnidades();
 };
 
 window.closeRankingUnidades = () => {
-  document.getElementById('modal-ranking-unidades').classList.add('hidden');
+  const modal = document.getElementById('modal-ranking-unidades');
+  if (modal) modal.classList.add('hidden');
 };
 
+function obterDataChamado(t) {
+  const candidatos = [
+    t.criado, t.createdAt, t.created_at, t.criadoEm, t.created, t.timestamp,
+    t.dataAbertura, t.data_abertura, t.abertura, t.abertoEm, t.inicio,
+    t.data, t.dataCriacao, t.data_criacao
+  ];
+
+  for (const bruto of candidatos) {
+    if (!bruto) continue;
+
+    if (bruto?.toDate) {
+      const d = bruto.toDate();
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    if (bruto instanceof Date && !isNaN(bruto.getTime())) return bruto;
+
+    if (typeof bruto === 'object') {
+      if (typeof bruto.seconds === 'number') {
+        const d = new Date(bruto.seconds * 1000);
+        if (!isNaN(d.getTime())) return d;
+      }
+      if (typeof bruto._seconds === 'number') {
+        const d = new Date(bruto._seconds * 1000);
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+
+    if (typeof bruto === 'number') {
+      const d = new Date(bruto);
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    if (typeof bruto === 'string') {
+      const s = bruto.trim();
+
+      let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[,\s]+(\d{2}):(\d{2}))?/);
+      if (m) {
+        const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4] || 0), Number(m[5] || 0));
+        if (!isNaN(d.getTime())) return d;
+      }
+
+      m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) {
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+  }
+
+  return null;
+}
+
+function popularAnosRanking() {
+  const sel = document.getElementById('rank-ano');
+  if (!sel) return;
+
+  const atualSelecionado = sel.value || 'todos';
+  const anoAtual = new Date().getFullYear();
+
+  const anosDosChamados = allTickets
+    .map(t => obterDataChamado(t))
+    .filter(Boolean)
+    .map(d => d.getFullYear());
+
+  const menorAno = Math.min(2026, anoAtual, ...anosDosChamados);
+  const maiorAno = Math.max(anoAtual + 5, ...anosDosChamados, 2026);
+
+  const anos = [];
+  for (let ano = menorAno; ano <= maiorAno; ano++) anos.push(ano);
+
+  sel.innerHTML = '<option value="todos">Todos os anos</option>' +
+    anos.map(a => `<option value="${a}">${a}</option>`).join('');
+
+  if ([...sel.options].some(o => o.value === atualSelecionado)) {
+    sel.value = atualSelecionado;
+  } else if ([...sel.options].some(o => o.value === String(anoAtual))) {
+    sel.value = String(anoAtual);
+  } else {
+    sel.value = 'todos';
+  }
+}
+
+function getRankingPeriodoLabel() {
+  const mes = document.getElementById('rank-mes')?.value || 'todos';
+  const ano = document.getElementById('rank-ano')?.value || 'todos';
+  const meses = {
+    "1":"Janeiro","2":"Fevereiro","3":"Março","4":"Abril","5":"Maio","6":"Junho",
+    "7":"Julho","8":"Agosto","9":"Setembro","10":"Outubro","11":"Novembro","12":"Dezembro"
+  };
+
+  if (mes === 'todos' && ano === 'todos') return 'Todos os períodos';
+  if (mes !== 'todos' && ano === 'todos') return `${meses[mes]} — todos os anos`;
+  if (mes === 'todos' && ano !== 'todos') return `Ano de ${ano}`;
+  return `${meses[mes]} de ${ano}`;
+}
+
 function getRankingUnidadesData() {
+  const mesFiltro = document.getElementById('rank-mes')?.value || 'todos';
+  const anoFiltro = document.getElementById('rank-ano')?.value || 'todos';
+
   const mapa = {};
+
   allTickets.forEach(t => {
-    const unidade = t.unidade || 'Não informado';
-    if (!mapa[unidade]) mapa[unidade] = { unidade, total: 0, aberto: 0, em_andamento: 0, concluido: 0 };
+    const data = obterDataChamado(t);
+
+    if (mesFiltro !== 'todos' || anoFiltro !== 'todos') {
+      if (!data) return;
+
+      const mes = data.getMonth() + 1;
+      const ano = data.getFullYear();
+
+      if (mesFiltro !== 'todos' && mes !== Number(mesFiltro)) return;
+      if (anoFiltro !== 'todos' && ano !== Number(anoFiltro)) return;
+    }
+
+    const unidade = t.unidade || t.unidadeSaude || t.unidade_solicitante || 'Não informado';
+    const status = t.status || 'aberto';
+
+    if (!mapa[unidade]) {
+      mapa[unidade] = { unidade, total: 0, aberto: 0, em_andamento: 0, concluido: 0 };
+    }
+
     mapa[unidade].total++;
-    if (t.status === 'aberto') mapa[unidade].aberto++;
-    else if (t.status === 'em_andamento') mapa[unidade].em_andamento++;
-    else if (t.status === 'concluido') mapa[unidade].concluido++;
+
+    if (status === 'aberto') mapa[unidade].aberto++;
+    else if (status === 'em_andamento') mapa[unidade].em_andamento++;
+    else if (status === 'concluido') mapa[unidade].concluido++;
   });
+
   return Object.values(mapa).sort((a,b) => b.total - a.total || a.unidade.localeCompare(b.unidade));
 }
 
 window.renderRankingUnidades = () => {
+  const preview = document.getElementById('ranking-preview');
+  if (!preview) return;
+
   const dados = getRankingUnidadesData();
   const totalChamados = dados.reduce((s, d) => s + d.total, 0);
+  const periodo = getRankingPeriodoLabel();
   const lider = dados[0] ? dados[0].unidade : '-';
+
   const htmlRows = dados.map((d, i) => `
     <tr>
       <td style="text-align:center;font-weight:700">${i + 1}º</td>
@@ -1890,10 +2043,10 @@ window.renderRankingUnidades = () => {
     </tr>
   `).join('');
 
-  document.getElementById('ranking-preview').innerHTML = `
+  preview.innerHTML = `
     <div class="rpt-header">
       <h2>Relatório Geral de Abertura de Chamados por Unidade</h2>
-      <p>Ranking das unidades que mais solicitaram chamados</p>
+      <p>Ranking das unidades que mais solicitaram chamados — ${periodo}</p>
     </div>
     <div class="rpt-kpis">
       <div class="rpt-kpi"><div class="val">${totalChamados}</div><div class="lbl">Total de Chamados</div></div>
@@ -1912,7 +2065,7 @@ window.renderRankingUnidades = () => {
           <th style="text-align:center">Concluídos</th>
         </tr>
       </thead>
-      <tbody>${htmlRows || '<tr><td colspan="6" style="text-align:center;color:#777">Nenhum chamado encontrado.</td></tr>'}</tbody>
+      <tbody>${htmlRows || '<tr><td colspan="6" style="text-align:center;color:#777">Nenhum chamado encontrado para o período selecionado.</td></tr>'}</tbody>
     </table>
     <div class="report-credit">${SYSTEM_CREDIT}</div>
   `;
@@ -1920,7 +2073,7 @@ window.renderRankingUnidades = () => {
 
 window.imprimirRankingUnidades = () => {
   renderRankingUnidades();
-  const conteudo = document.getElementById('ranking-preview').innerHTML;
+  const conteudo = document.getElementById('ranking-preview')?.innerHTML || '';
   const w = window.open('', '_blank');
   w.document.write(`
     <!DOCTYPE html><html><head><title>Ranking de Chamados por Unidade</title>
